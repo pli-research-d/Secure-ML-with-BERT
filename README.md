@@ -1,8 +1,8 @@
-# Secure BERT-Based Personalized Model Training
+# Analysis, Modeling and Design of Personalized Digital Learning Environment: A Proof of Concept
 
-This project demonstrates a secure machine learning environment using BERT to classify learning measures while maintaining data privacy through encryption and anonymization.
+This research analyzes, models and develops a novel Digital Learning Environment (DLE) fortified by the innovative Private Learning Intelligence (PLI) framework. The proposed PLI framework leverages federated machine learning (FL) techniques to autonomously construct and continuously refine personalized learning models for individual learners, ensuring robust privacy protection. Our approach is pivotal in advancing DLE capabilities, empowering learners to actively participate in personalized real-time learning experiences. The integration of PLI within a DLE also streamlines instructional design and development demands for personalized teaching/learning. We seek ways to establish a foundation for the seamless integration of FL into teaching/learning systems, offering a transformative approach to personalized learning in digital environments.
 
-## Project Structure
+## Implementation Details
 
 1. **Required Imports and Environment Setup**
     - The following libraries are required for the project:
