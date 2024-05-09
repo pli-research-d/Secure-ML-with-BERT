@@ -2,6 +2,8 @@
 
 This research analyzes, models and develops a novel Digital Learning Environment (DLE) fortified by the innovative Private Learning Intelligence (PLI) framework. The proposed PLI framework leverages federated machine learning (FL) techniques to autonomously construct and continuously refine personalized learning models for individual learners, ensuring robust privacy protection. Our approach is pivotal in advancing DLE capabilities, empowering learners to actively participate in personalized real-time learning experiences. The integration of PLI within a DLE also streamlines instructional design and development demands for personalized teaching/learning. We seek ways to establish a foundation for the seamless integration of FL into teaching/learning systems, offering a transformative approach to personalized learning in digital environments.
 
+## Proposed Architecture
+!fig{PLI Architecture.png}
 ## Implementation Details
 
 1. **Required Imports and Environment Setup**
