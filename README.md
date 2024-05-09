@@ -4,6 +4,7 @@ This research analyzes, models and develops a novel Digital Learning Environment
 
 ## Proposed Architecture
 ![fig3](https://github.com/pli-research-d/Secure-ML-with-BERT/blob/069015f8bbc4271a644b3b94cbf3bf0e6ec7f3b3/PLI%20Architecture.png)
+
 We enter the realm of PLI, where innovation meets the necessity to address two critical challenges head-on. Firstly, we tackle the imperative for dynamic, locally-trained personal ML model training, safeguarding sensitive data within the user's environment. No longer will privacy concerns hinder progress; PLI ensures our data stays where it belongs—under our control.
 
 PLI goes beyond mere privacy protection; it pioneers the seamless integration of local personal models and global knowledge models. Imagine unlocking a world of personalized, domain-specific insights directly within our learning experience. With PLI, education becomes more than just acquiring knowledge—it's about harnessing insights tailored to our unique journey and aspirations. We aim to revolutionize learning through the power of PLI, where privacy and personalization converge to shape a brighter future.
