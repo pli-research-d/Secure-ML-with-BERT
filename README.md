@@ -317,6 +317,10 @@ Following implementation demonstrates a secure and personalized learning environ
     print("Learning Measures Scores:", learning_scores)
     ```
 
+## Video 
+**Screen recording of the process**
+[![YouTube](http://i.ytimg.com/vi/LH0zSi6c7JQ/hqdefault.jpg)](https://www.youtube.com/watch?v=LH0zSi6c7JQ)
+
 ## Getting Started
 
 1. **Install Dependencies**:
