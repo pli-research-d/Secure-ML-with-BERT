@@ -18,7 +18,7 @@ Following implementation demonstrates a secure and personalized learning environ
 - **PrivacySafeguard**: Provides data anonymization and encryption using Fernet encryption.
 
 ### Learning Dataset
-- **LearningDataset**: Custom dataset class inheriting from `torch.utils.data.Dataset`, handling data loading, anonymization, encryption, and tokenization for machine learning tasks.
+- **LearningDataset**: Custom dataset class, handling data loading, anonymization, encryption, and tokenization for machine learning tasks.
 
 ### Model Setup
 - **BertTokenizer**: Tokenizes text data using the transformers library.
@@ -49,7 +49,7 @@ Following implementation demonstrates a secure and personalized learning environ
 - Demonstrates how to average a personalized model with a global model.
 
 ### Contextual Chatbot
-- **ContextualChatbot Example**: Class that uses a large language model (LLM) adapter from Gradient AI to generate responses.
+- **contextual chatbot example**: Class that uses a large language model (LLM) adapter from Gradient AI to generate responses.
   - Allows personalization based on the user's learning scores.
   - Extracts topics from user prompts using spaCy and Rake.
   - Implements a chat loop that handles user input, generates responses, and displays learning scores and topic information.
@@ -60,15 +60,17 @@ Following implementation demonstrates a secure and personalized learning environ
 1. **Required Imports and Environment Setup**
     - The following libraries are required for the project:
       - `torch`, `transformers`, `torch.nn.functional`, `torch.utils.data`
-      - `numpy`, `cryptography.fernet`
+      - `scikit-learn`, `panda`, `numpy`, `cryptography.fernet`, `hyperopt`
 
     ```python
     import torch
-    from torch.utils.data import Dataset, DataLoader, random_split
-    from transformers import BertTokenizer, BertForSequenceClassification
-    import torch.nn.functional as F
+    import pandas as pd
     import numpy as np
+    from torch.utils.data import Dataset, DataLoader, random_split, TensorDataset
+    from sklearn.metrics import accuracy_score
+    from transformers import BertTokenizer, BertForSequenceClassification
     from cryptography.fernet import Fernet
+    from hyperopt import fmin, tpe, hp, STATUS_OK, Trials
     ```
 
 2. **Secure ML Environment Class**
@@ -120,7 +122,7 @@ Following implementation demonstrates a secure and personalized learning environ
             item = self.data[idx]
             label = self.targets[idx]
             tokens = self.tokenizer(
-                f"{item[0]} {item[1]} {item[2]} {item[3]} {item[4]} {item[5]} {item[6]} {item[7]} {item[8]}",
+                ' '.join(map(str, item)),
                 padding='max_length',
                 truncation=True,
                 max_length=self.max_length,
@@ -143,75 +145,153 @@ Following implementation demonstrates a secure and personalized learning environ
 6. **Dataset and DataLoader Setup**
     - Prepares training data and defines data loaders:
     ```python
-    training_data = secure_env.isolate(np.array([
-        [3, 8, 10, 4, 78.0, 85.0, 3, 1, 6],
-        [5, 12, 15, 8, 82.0, 89.0, 4, 0, 7]
-    ]))
-
-    target_scores = np.array([
-        [6.0, 7.5, 8.0, 7.0],
-        [8.0, 9.0, 9.5, 9.0]
-    ])
-
+    csv_file_path = './sample_data/learner_behavior_data.csv'
+    
+    def load_data(file_path):
+        df = pd.read_csv(file_path, chunksize=1000)
+        data = []
+        targets = []
+        for chunk in df:
+            data.extend(chunk.iloc[:, :-4].values)
+            targets.extend(chunk.iloc[:, -4:].values)
+        data_id, isolated_data = secure_env.isolate(data)
+        return isolated_data, targets
+    
+    training_data, target_scores = load_data(csv_file_path)
+    
     dataset = LearningDataset(training_data, target_scores, tokenizer)
     train_size = int(0.75 * len(dataset))
     val_size = len(dataset) - train_size
     train_dataset, val_dataset = random_split(dataset, [train_size, val_size])
-
+    
     train_loader = DataLoader(train_dataset, batch_size=2, shuffle=True)
-    val_loader = DataLoader(val_dataset, batch_size=2, shuffle=False)
+    val_loader = DataLoader(val_dataset, batch_size=2)
     ```
 
-7. **Training Loop**
+7. **Training and Validation Loop**
     - Optimizes model parameters and evaluates on a validation dataset:
     ```python
     optimizer = torch.optim.AdamW(model.parameters(), lr=5e-5)
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model.to(device)
 
-    num_epochs = 1
-    for epoch in range(num_epochs):
-        model.train()
-        train_loss = 0
-
-        for batch in train_loader:
-            input_ids = batch['input_ids'].to(device)
-            attention_mask = batch['attention_mask'].to(device)
-            labels = batch['labels'].to(device)
-
-            optimizer.zero_grad()
-            outputs = model(input_ids=input_ids, attention_mask=attention_mask, labels=labels)
-            loss = outputs.loss
-            loss.backward()
-            optimizer.step()
-            train_loss += loss.item()
-
-        avg_train_loss = train_loss / len(train_loader)
-
-        model.eval()
-        val_loss = 0
-        with torch.no_grad():
-            for batch in val_loader:
+    def train_and_validate(model, train_loader, val_loader, device, num_epochs=1):
+        personalized_val_loss = float('inf')
+        for epoch in range(num_epochs):
+            model.train()
+            total_train_loss = 0
+    
+            for batch in train_loader:
                 input_ids = batch['input_ids'].to(device)
                 attention_mask = batch['attention_mask'].to(device)
                 labels = batch['labels'].to(device)
-
+    
+                optimizer.zero_grad()
                 outputs = model(input_ids=input_ids, attention_mask=attention_mask, labels=labels)
                 loss = outputs.loss
-                val_loss += loss.item()
-
-        avg_val_loss = val_loss / len(val_loader)
-        print(f"Epoch {epoch + 1}/{num_epochs}, Train Loss: {avg_train_loss:.4f}, Val Loss: {avg_val_loss:.4f}")
-
-        best_val_loss = float('inf')
-
-        if avg_val_loss < best_val_loss:
-            best_val_loss = avg_val_loss
-            model.save_pretrained('best-learning-model')
-            tokenizer.save_pretrained('best-learning-model')
+                loss.backward()
+                optimizer.step()
+                total_train_loss += loss.item()
+    
+            avg_train_loss = total_train_loss / len(train_loader)
+    
+            model.eval()
+            total_val_loss = 0
+            with torch.no_grad():
+                for batch in val_loader:
+                    input_ids = batch['input_ids'].to(device)
+                    attention_mask = batch['attention_mask'].to(device)
+                    labels = batch['labels'].to(device)
+    
+                    outputs = model(input_ids=input_ids, attention_mask=attention_mask, labels=labels)
+                    loss = outputs.loss
+                    total_val_loss += loss.item()
+    
+            avg_val_loss = total_val_loss / len(val_loader)
+            print(f"Epoch {epoch + 1}/{num_epochs}, Train Loss: {avg_train_loss:.4f}, Val Loss: {avg_val_loss:.4f}")
+    
+            if avg_val_loss < personalized_val_loss:
+                personalized_val_loss = avg_val_loss
+                model.save_pretrained('personalized-learning-model')
+                tokenizer.save_pretrained('personalized-learning-model')
     ```
 
-8. **Inference Function**
+8. **Hyperparameter Tuning Function**
+    - Performs hyperparameter tuning for the machine learning model:
+    ```python
+    def hyperparameter_tuning(data, targets, tokenizer, max_length=512):
+    
+        def objective(params):
+            dataset = LearningDataset(data, targets, tokenizer, max_length)
+            train_size = int(0.75 * len(dataset))
+            val_size = len(dataset) - train_size
+            train_dataset, val_dataset = random_split(dataset, [train_size, val_size])
+            train_loader = DataLoader(train_dataset, batch_size=params['batch_size'], shuffle=True)
+            val_loader = DataLoader(val_dataset, batch_size=params['batch_size'])
+    
+            model = BertForSequenceClassification.from_pretrained('bert-base-uncased', num_labels=4)
+            optimizer = torch.optim.AdamW(model.parameters(), lr=params['learning_rate'])
+    
+            best_val_loss = float('inf')
+            for epoch in range(params['epochs']):
+                model.train()
+                total_train_loss = 0
+    
+                for batch in train_loader:
+                    input_ids = batch['input_ids'].to(device)
+                    attention_mask = batch['attention_mask'].to(device)
+                    labels = batch['labels'].to(device)
+    
+                    optimizer.zero_grad()
+                    outputs = model(input_ids=input_ids, attention_mask=attention_mask, labels=labels)
+                    loss = outputs.loss
+                    loss.backward()
+                    optimizer.step()
+                    total_train_loss += loss.item()
+    
+                avg_train_loss = total_train_loss / len(train_loader)
+    
+                model.eval()
+                total_val_loss = 0
+                with torch.no_grad():
+                    for batch in val_loader:
+                        input_ids = batch['input_ids'].to(device)
+                        attention_mask = batch['attention_mask'].to(device)
+                        labels = batch['labels'].to(device)
+    
+                        outputs = model(input_ids=input_ids, attention_mask=attention_mask, labels=labels)
+                        loss = outputs.loss
+                        total_val_loss += loss.item()
+    
+                avg_val_loss = total_val_loss / len(val_loader)
+    
+                if avg_val_loss < best_val_loss:
+                    best_val_loss = avg_val_loss
+    
+            return {'loss': best_val_loss, 'status': STATUS_OK}
+    
+        search_space = {
+            'learning_rate': hp.loguniform('learning_rate', -5, -3),
+            'batch_size': hp.choice('batch_size', [2, 4, 8]),
+            'epochs': hp.choice('epochs', [3, 5, 10])
+        }
+    
+        trials = Trials()
+        best_params = fmin(objective, search_space, algo=tpe.suggest, max_evals=1, trials=trials)
+  
+        print('Best hyperparameters:', best_params)
+        print('Best validation loss:', trials.best_trial['result']['loss'])
+    
+        model = BertForSequenceClassification.from_pretrained('bert-base-uncased', num_labels=4)
+        optimizer = torch.optim.AdamW(model.parameters(), lr=best_params['learning_rate'])
+        train_and_validate(model, train_loader, val_loader, device, num_epochs=best_params['epochs'])
+    
+        return model, best_params  # Return both model and hyperparameters
+    
+    model, best_params = hyperparameter_tuning(training_data, target_scores, tokenizer)
+    ```
+    
+9. **Inference Function**
     - Evaluates new data based on the trained model:
     ```python
     def calculate_learning_measures(logins, time_spent, page_visits, search_queries, activity_completion, quiz_score, reactions_pos, reactions_neg, feedback):
@@ -221,7 +301,7 @@ Following implementation demonstrates a secure and personalized learning environ
         with torch.no_grad():
             output = model(**tokens)
             scores = torch.sigmoid(output.logits).squeeze(0).cpu().numpy()
-
+    
         return {
             'Conscientiousness': round(scores[0] * 10, 2),
             'Motivation': round(scores[1] * 10, 2),
@@ -230,7 +310,7 @@ Following implementation demonstrates a secure and personalized learning environ
         }
     ```
 
-9. **Example Usage**
+10. **Example Usage**
     - Tests the inference function with example data:
     ```python
     learning_scores = calculate_learning_measures(4, 9, 11, 5, 80.0, 84.0, 3, 2, 6)
